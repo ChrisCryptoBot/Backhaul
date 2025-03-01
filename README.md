@@ -1,8 +1,8 @@
-# Claude Code (Research Preview) Cleanroom Transpilation
+# Claude Code (Research Preview) Cleanroom Deobfuscation
 
 **DISCLAIMER:**
 
-This is a cleanroom transpilation of the official Claude Code npm package.
+This is a cleanroom of the official Claude Code npm package.
 
 Learn more at https://ghuntley.com/tradecraft
 
