@@ -197,7 +197,7 @@ class Terminal implements TerminalInterface {
    * Create a clickable link in the terminal if supported
    */
   link(text: string, url: string): string {
-    return terminalLink(text, url, { fallback: (text, url) => `${text} (${url})` });
+    return terminalLink(text, url, { fallback: (linkText: string, linkUrl: string) => `${linkText} (${linkUrl})` });
   }
 
   /**

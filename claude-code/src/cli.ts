@@ -9,11 +9,10 @@
 import { commandRegistry, executeCommand, generateCommandHelp } from './commands/index.js';
 import { logger } from './utils/logger.js';
 import { formatErrorForDisplay } from './errors/formatter.js';
-import { initAI } from './ai/index.js';
 import { authManager } from './auth/index.js';
 import { registerCommands } from './commands/register.js';
 import { UserError } from './errors/types.js';
-import pkg from '../package.json' assert { type: 'json' };
+import pkg from '../package.json' with { type: 'json' };
 
 // Get version from package.json
 const version = pkg.version;
@@ -151,18 +150,6 @@ async function initCLI(): Promise<void> {
       console.error(`Unknown command: ${commandName}`);
       console.error('Use "claude-code help" to see available commands.');
       process.exit(1);
-    }
-    
-    // Check if command requires authentication
-    if (command.requiresAuth && !authManager.isAuthenticated()) {
-      console.error(`Command '${commandName}' requires authentication.`);
-      console.error('Please log in using the "claude-code login" command first.');
-      process.exit(1);
-    }
-    
-    // Initialize AI if required
-    if (command.requiresAuth) {
-      await initAI();
     }
     
     // Execute the command

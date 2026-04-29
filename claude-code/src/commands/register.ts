@@ -6,13 +6,15 @@
 
 import { commandRegistry, ArgType, CommandDef } from './index.js';
 import { logger } from '../utils/logger.js';
-import { getAIClient, initAI } from '../ai/index.js';
+import { getAIClient, initAI, resetAI } from '../ai/index.js';
 import { fileExists, readTextFile } from '../fs/operations.js';
 import { isNonEmptyString } from '../utils/validation.js';
 import { formatErrorForDisplay } from '../errors/formatter.js';
 import { authManager } from '../auth/index.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
+import { loadConfig } from '../config/index.js';
+import { initExecutionEnvironment } from '../execution/index.js';
 
 /**
  * Register all commands
@@ -41,11 +43,36 @@ export function registerCommands(): void {
   registerQuitCommand();
   registerClearCommand();
   registerResetCommand();
-  registerHistoryCommand();
   registerCommandsCommand();
   registerHelpCommand();
   
   logger.info('Commands registered successfully');
+}
+
+let commandExecutionEnv: Awaited<ReturnType<typeof initExecutionEnvironment>> | null = null;
+
+async function getExecutionEnv() {
+  if (!commandExecutionEnv) {
+    const config = await loadConfig();
+    commandExecutionEnv = await initExecutionEnvironment(config);
+  }
+  return commandExecutionEnv;
+}
+
+function parseCommandTokens(input: string): { command: string; args: string[] } {
+  const tokens = input.match(/"[^"]*"|'[^']*'|\S+/g) || [];
+  const normalized = tokens.map((token) => token.replace(/^["']|["']$/g, ''));
+  if (normalized.length === 0) {
+    throw createUserError('Command is required', {
+      category: ErrorCategory.VALIDATION,
+      resolution: 'Please provide a command to execute.'
+    });
+  }
+
+  return {
+    command: normalized[0],
+    args: normalized.slice(1)
+  };
 }
 
 /**
@@ -590,13 +617,9 @@ function registerConfigCommand(): void {
           
           // Update the config in memory
           configSection[finalKey] = parsedValue;
-          
-          // Save the updated config to file
-          // Since there's no direct saveConfig function, we'd need to implement
-          // this part separately to write to a config file
-          logger.info(`Configuration updated in memory: ${key} = ${JSON.stringify(parsedValue)}`);
-          logger.warn('Note: Configuration changes are only temporary for this session');
-          // In a real implementation, we would save to the config file
+
+          await configModule.saveConfig(currentConfig);
+          logger.info(`Configuration persisted: ${key} = ${JSON.stringify(parsedValue)}`);
         }
       } catch (error) {
         logger.error(`Error executing config command: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -789,23 +812,20 @@ function registerRunCommand(): void {
       
       try {
         logger.info(`Running command: ${commandToRun}`);
-        
-        // Execute the command
-        const { exec } = await import('child_process');
-        const util = await import('util');
-        const execPromise = util.promisify(exec);
-        
-        logger.debug(`Executing: ${commandToRun}`);
-        const { stdout, stderr } = await execPromise(commandToRun);
-        
-        if (stdout) {
-          console.log(stdout);
+
+        const executionEnv = await getExecutionEnv();
+        const parsed = parseCommandTokens(commandToRun);
+        const result = await executionEnv.executeCommandArgs(parsed.command, parsed.args);
+        if (result.output) {
+          console.log(result.output);
         }
-        
-        if (stderr) {
-          console.error(stderr);
+        if (result.exitCode !== 0) {
+          throw createUserError(`Command failed with exit code ${result.exitCode}`, {
+            category: ErrorCategory.COMMAND_EXECUTION,
+            resolution: 'Review command output and retry with corrected arguments.'
+          });
         }
-        
+
         logger.info('Command executed successfully');
       } catch (error) {
         logger.error(`Error executing command: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -858,42 +878,31 @@ function registerSearchCommand(): void {
       
       try {
         logger.info(`Searching for: ${term}`);
-        
-        // Get search directory (current directory if not specified)
+
+        const executionEnv = await getExecutionEnv();
         const searchDir = args.dir || process.cwd();
-        
-        // Execute the search using ripgrep if available, otherwise fall back to simple grep
-        const { exec } = await import('child_process');
-        const util = await import('util');
-        const execPromise = util.promisify(exec);
-        
-        let searchCommand;
-        const searchPattern = term.includes(' ') ? `"${term}"` : term;
-        
-        try {
-          // Try to use ripgrep (rg) for better performance
-          await execPromise('rg --version');
-          
-          // Ripgrep is available, use it
-          searchCommand = `rg --color=always --line-number --heading --smart-case ${searchPattern} ${searchDir}`;
-        } catch {
-          // Fall back to grep (available on most Unix systems)
-          searchCommand = `grep -r --color=always -n "${term}" ${searchDir}`;
-        }
-        
-        logger.debug(`Running search command: ${searchCommand}`);
-        const { stdout, stderr } = await execPromise(searchCommand);
-        
-        if (stderr) {
-          console.error(stderr);
-        }
-        
-        if (stdout) {
-          console.log(stdout);
+        const result = await executionEnv.executeCommandArgs('rg', [
+          '--color=always',
+          '--line-number',
+          '--heading',
+          '--smart-case',
+          term,
+          searchDir
+        ]);
+
+        if (result.output) {
+          console.log(result.output);
         } else {
           console.log(`No results found for '${term}'`);
         }
-        
+
+        if (result.exitCode !== 0 && result.exitCode !== 1) {
+          throw createUserError(`Search failed with exit code ${result.exitCode}`, {
+            category: ErrorCategory.COMMAND_EXECUTION,
+            resolution: 'Ensure ripgrep is installed and the search directory is valid.'
+          });
+        }
+
         logger.info('Search completed');
       } catch (error) {
         logger.error(`Error searching codebase: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1141,9 +1150,7 @@ function registerEditCommand(): void {
         
         // On different platforms, open the file with different editors
         const { platform } = await import('os');
-        const { exec } = await import('child_process');
-        const util = await import('util');
-        const execPromise = util.promisify(exec);
+        const { spawn } = await import('child_process');
         
         let editorCommand;
         const systemPlatform = platform();
@@ -1161,32 +1168,31 @@ function registerEditCommand(): void {
             editorCommand = `open -a TextEdit "${resolvedPath}"`;
           } else {
             // Try nano first, fall back to vi
-            try {
-              await execPromise('which nano');
-              editorCommand = `nano "${resolvedPath}"`;
-            } catch {
-              editorCommand = `vi "${resolvedPath}"`;
-            }
+            editorCommand = `nano "${resolvedPath}"`;
           }
         }
         
         logger.debug(`Executing editor command: ${editorCommand}`);
         console.log(`Opening ${resolvedPath} for editing...`);
-        
-        const child = exec(editorCommand);
-        
-        // Log when the editor process exits
-        child.on('exit', (code) => {
-          logger.info(`Editor process exited with code: ${code}`);
-          if (code === 0) {
-            console.log(`File saved: ${resolvedPath}`);
-          } else {
-            console.error(`Editor exited with non-zero code: ${code}`);
-          }
+
+        const parsed = parseCommandTokens(editorCommand);
+        const child = spawn(parsed.command, parsed.args, {
+          stdio: 'inherit',
+          shell: false
         });
-        
-        // Wait for the editor to start
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        await new Promise<void>((resolve, reject) => {
+          child.on('close', (code) => {
+            logger.info(`Editor process exited with code: ${code}`);
+            if (code === 0) {
+              console.log(`File saved: ${resolvedPath}`);
+              resolve();
+              return;
+            }
+            reject(new Error(`Editor exited with non-zero code: ${code}`));
+          });
+          child.on('error', reject);
+        });
         
       } catch (error) {
         logger.error(`Error editing file: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1234,21 +1240,7 @@ function registerGitCommand(): void {
       
       try {
         logger.info(`Performing git operation: ${operation}`);
-        
-        // Check if git is installed
-        const { exec } = await import('child_process');
-        const util = await import('util');
-        const execPromise = util.promisify(exec);
-        
-        try {
-          await execPromise('git --version');
-        } catch (error) {
-          throw createUserError('Git is not installed or not in PATH', {
-            category: ErrorCategory.COMMAND_EXECUTION,
-            resolution: 'Please install git or add it to your PATH'
-          });
-        }
-        
+
         // Validate the operation is a simple command without pipes, redirection, etc.
         const validOpRegex = /^[a-z0-9\-_\s]+$/i;
         if (!validOpRegex.test(operation)) {
@@ -1257,21 +1249,20 @@ function registerGitCommand(): void {
             resolution: 'Please provide a simple git operation without special characters'
           });
         }
-        
-        // Construct and execute the git command
-        const gitCommand = `git ${operation}`;
-        logger.debug(`Executing git command: ${gitCommand}`);
-        
-        const { stdout, stderr } = await execPromise(gitCommand);
-        
-        if (stderr) {
-          console.error(stderr);
+
+        const executionEnv = await getExecutionEnv();
+        const parsed = parseCommandTokens(operation);
+        const result = await executionEnv.executeCommandArgs('git', [parsed.command, ...parsed.args]);
+        if (result.output) {
+          console.log(result.output);
         }
-        
-        if (stdout) {
-          console.log(stdout);
+        if (result.exitCode !== 0) {
+          throw createUserError(`Git operation failed with exit code ${result.exitCode}`, {
+            category: ErrorCategory.COMMAND_EXECUTION,
+            resolution: 'Review git output and verify operation syntax.'
+          });
         }
-        
+
         logger.info('Git operation completed');
       } catch (error) {
         logger.error(`Error executing git operation: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1390,14 +1381,11 @@ function registerResetCommand(): void {
       logger.info('Executing reset command');
       
       try {
-        // Since there's no direct reset method, we'll reinitialize the AI client
-        logger.info('Reinitializing AI client to reset conversation context');
-        
-        // Re-initialize the AI client
+        logger.info('Resetting in-memory AI session state');
+        resetAI();
         await initAI();
-        
-        console.log('Conversation context has been reset.');
-        logger.info('AI client reinitialized, conversation context reset');
+        console.log('AI session state has been reset.');
+        logger.info('AI client reset complete');
       } catch (error) {
         logger.error(`Error resetting conversation context: ${error instanceof Error ? error.message : 'Unknown error'}`);
         throw error;

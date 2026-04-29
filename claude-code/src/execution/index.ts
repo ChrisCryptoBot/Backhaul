@@ -9,7 +9,6 @@ import { exec, spawn } from 'child_process';
 import { logger } from '../utils/logger.js';
 import { createUserError } from '../errors/formatter.js';
 import { ErrorCategory } from '../errors/types.js';
-import { Timeout } from '../utils/types.js';
 
 /**
  * Result of a command execution
@@ -204,6 +203,76 @@ class ExecutionEnvironment {
   }
 
   /**
+   * Execute a command using argument vectors (no shell interpolation)
+   */
+  async executeCommandArgs(
+    command: string,
+    args: string[] = [],
+    options: ExecutionOptions = {}
+  ): Promise<ExecutionResult> {
+    this.executionCount++;
+    this.validateCommand([command, ...args].join(' '));
+
+    const cwd = options.cwd || this.workingDirectory;
+    const env = { ...this.environmentVariables, ...(options.env || {}) };
+    const timeout = options.timeout || DEFAULT_TIMEOUT;
+    const captureStderr = options.captureStderr !== false;
+    const startTime = Date.now();
+
+    return new Promise<ExecutionResult>((resolve) => {
+      const childProcess = spawn(command, args, {
+        cwd,
+        env,
+        shell: false,
+        windowsHide: true
+      });
+
+      let stdout = '';
+      let stderr = '';
+      let settled = false;
+
+      const finalize = (exitCode: number, error?: Error): void => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        const duration = Date.now() - startTime;
+        const output = captureStderr ? `${stdout}${stderr}` : stdout;
+        resolve({
+          output,
+          exitCode,
+          error,
+          command: [command, ...args].join(' '),
+          duration
+        });
+      };
+
+      const timeoutId = setTimeout(() => {
+        childProcess.kill();
+        finalize(124, new Error(`Command timed out after ${timeout}ms`));
+      }, timeout);
+
+      childProcess.stdout?.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString('utf8');
+      });
+
+      childProcess.stderr?.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString('utf8');
+      });
+
+      childProcess.on('error', (error) => {
+        clearTimeout(timeoutId);
+        finalize(1, error);
+      });
+
+      childProcess.on('close', (code) => {
+        clearTimeout(timeoutId);
+        finalize(code ?? 1);
+      });
+    });
+  }
+
+  /**
    * Execute a command in the background
    */
   executeCommandInBackground(command: string, options: BackgroundProcessOptions = {}): BackgroundProcess {
@@ -280,7 +349,9 @@ class ExecutionEnvironment {
         }
         return false;
       },
-      isRunning: true
+      get isRunning() {
+        return isRunning;
+      }
     };
     
     // Track the process
@@ -391,23 +462,6 @@ export async function initExecutionEnvironment(config: any): Promise<ExecutionEn
     // Return a minimal execution environment even if initialization failed
     return new ExecutionEnvironment(config);
   }
-}
-
-// Set up cleanup on process exit
-function setupProcessCleanup(executionEnv: ExecutionEnvironment): void {
-  process.on('exit', () => {
-    executionEnv.killAllBackgroundProcesses();
-  });
-  
-  process.on('SIGINT', () => {
-    executionEnv.killAllBackgroundProcesses();
-    process.exit(0);
-  });
-  
-  process.on('SIGTERM', () => {
-    executionEnv.killAllBackgroundProcesses();
-    process.exit(0);
-  });
 }
 
 export { ExecutionResult, ExecutionOptions, BackgroundProcess, BackgroundProcessOptions };

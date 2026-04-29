@@ -290,4 +290,16 @@ export async function loadConfig(options: any = {}): Promise<any> {
   return config;
 }
 
-export default { loadConfig }; 
+/**
+ * Save configuration to the user-scoped config file
+ */
+export async function saveConfig(config: any, explicitPath?: string): Promise<string> {
+  const targetPath = explicitPath || CONFIG_PATHS.find((configPath) => configPath.endsWith('config.json')) || CONFIG_PATHS[0];
+  const targetDir = path.dirname(targetPath);
+  await fs.promises.mkdir(targetDir, { recursive: true });
+  await fs.promises.writeFile(targetPath, JSON.stringify(config, null, 2), 'utf8');
+  logger.info(`Saved configuration to ${targetPath}`);
+  return targetPath;
+}
+
+export default { loadConfig, saveConfig };

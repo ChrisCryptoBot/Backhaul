@@ -84,12 +84,52 @@ export const configSchema = z.object({
   logLevel: LogLevel.default('info'),
   
   // Subsystem configurations
-  api: ApiConfigSchema.default({}),
-  telemetry: TelemetryConfigSchema.default({}),
-  terminal: TerminalConfigSchema.default({}),
-  codeAnalysis: CodeAnalysisConfigSchema.default({}),
-  git: GitConfigSchema.default({}),
-  editor: EditorConfigSchema.default({}),
+  api: ApiConfigSchema.default({
+    key: undefined,
+    baseUrl: undefined,
+    version: undefined,
+    timeout: undefined
+  }),
+  telemetry: TelemetryConfigSchema.default({
+    enabled: true,
+    anonymizeData: true,
+    errorReporting: true
+  }),
+  terminal: TerminalConfigSchema.default({
+    theme: 'system',
+    showProgressIndicators: true,
+    useColors: true,
+    codeHighlighting: true,
+    maxHeight: undefined,
+    maxWidth: undefined
+  }),
+  codeAnalysis: CodeAnalysisConfigSchema.default({
+    indexDepth: 3,
+    excludePatterns: [
+      'node_modules/**',
+      '.git/**',
+      'dist/**',
+      'build/**',
+      '**/*.min.js',
+      '**/*.bundle.js'
+    ],
+    includePatterns: ['**/*'],
+    maxFileSize: 1024 * 1024,
+    scanTimeout: 30000
+  }),
+  git: GitConfigSchema.default({
+    preferredRemote: 'origin',
+    preferredBranch: undefined,
+    useSsh: false,
+    useGpg: false,
+    signCommits: false
+  }),
+  editor: EditorConfigSchema.default({
+    preferredLauncher: undefined,
+    tabWidth: 2,
+    insertSpaces: true,
+    formatOnSave: true
+  }),
   
   // Runtime configuration
   paths: PathsConfigSchema.optional(),
@@ -101,7 +141,7 @@ export const configSchema = z.object({
   // Persistent data
   lastUpdateCheck: z.number().optional(),
   auth: z.object({
-    tokens: z.record(z.string()).optional(),
+    tokens: z.record(z.string(), z.string()).optional(),
     lastAuth: z.number().optional()
   }).optional(),
   recentWorkspaces: z.array(z.string()).default([])

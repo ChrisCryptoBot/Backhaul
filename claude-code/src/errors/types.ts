@@ -215,6 +215,16 @@ export interface ErrorOptions {
 }
 
 /**
+ * Error manager interface used by app bootstrap/runtime.
+ */
+export interface ErrorManager {
+  handleFatalError(error: unknown): never;
+  handleUnhandledRejection(reason: unknown, promise: Promise<unknown>): void;
+  handleUncaughtException(error: unknown): void;
+  handleError(error: unknown, options?: ErrorOptions): void;
+}
+
+/**
  * User error options
  */
 export interface UserErrorOptions {

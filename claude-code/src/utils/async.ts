@@ -67,11 +67,15 @@ export async function delay(ms: number): Promise<void> {
  */
 export function withTimeout<T extends (...args: any[]) => Promise<any>>(
   fn: T,
-  timeoutMs: number
+  timeoutMs: number,
+  onTimeout?: () => void
 ): (...args: Parameters<T>) => Promise<ReturnType<T>> {
   return async (...args: Parameters<T>): Promise<ReturnType<T>> => {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
+        if (onTimeout) {
+          onTimeout();
+        }
         const error = new Error(`Operation timed out after ${timeoutMs}ms`);
         error.name = 'TimeoutError';
         reject(error);
