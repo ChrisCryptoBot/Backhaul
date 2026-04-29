@@ -238,6 +238,30 @@ class Logger {
 // Create singleton logger instance
 export const logger = new Logger();
 
+/**
+ * Configure logger from app config object.
+ */
+export function configureLogger(config: any): void {
+  const levelMap: Record<string, LogLevel> = {
+    debug: LogLevel.DEBUG,
+    info: LogLevel.INFO,
+    warn: LogLevel.WARN,
+    error: LogLevel.ERROR,
+    silent: LogLevel.SILENT
+  };
+
+  const desiredLevel = config?.logger?.level;
+  if (typeof desiredLevel === 'string' && levelMap[desiredLevel.toLowerCase()] !== undefined) {
+    logger.setLevel(levelMap[desiredLevel.toLowerCase()]);
+  }
+
+  logger.configure({
+    timestamps: config?.logger?.timestamps ?? true,
+    colors: config?.logger?.colors ?? true,
+    verbose: config?.logger?.verbose ?? false
+  });
+}
+
 // Configure logger based on environment
 if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
   logger.setLevel(LogLevel.DEBUG);

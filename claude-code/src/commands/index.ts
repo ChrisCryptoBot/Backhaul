@@ -10,6 +10,8 @@ import { ErrorCategory } from '../errors/types.js';
 import { logger } from '../utils/logger.js';
 import { isNonEmptyString } from '../utils/validation.js';
 import { registerCommands } from './register.js';
+import { authManager } from '../auth/index.js';
+import { initAI, isAIInitialized } from '../ai/index.js';
 
 /**
  * Command argument types
@@ -509,6 +511,17 @@ export async function executeCommand(
   try {
     // Parse arguments
     const parsedArgs = parseArgs(args, command);
+
+    if (command.requiresAuth && !authManager.isAuthenticated()) {
+      throw createUserError(`Command '${command.name}' requires authentication`, {
+        category: ErrorCategory.AUTHENTICATION,
+        resolution: 'Please run "claude-code login" before executing this command.'
+      });
+    }
+
+    if (command.requiresAuth && !isAIInitialized()) {
+      await initAI();
+    }
     
     // Log command execution
     logger.debug(`Executing command: ${command.name}`, { args: parsedArgs });

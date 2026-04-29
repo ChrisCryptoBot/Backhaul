@@ -86,8 +86,8 @@ class ErrorHandlerImpl implements ErrorManager {
    * Handle a general error
    */
   handleError(error: unknown, options: ErrorOptions = {}): void {
-    const category = options.category || ErrorCategory.APPLICATION;
-    const level = options.level || ErrorLevel.MINOR;
+    const category = options.category ?? ErrorCategory.APPLICATION;
+    const level = options.level ?? ErrorLevel.MINOR;
     
     // Track error count for rate limiting
     const errorKey = `${category}:${level}:${this.getErrorMessage(error)}`;
@@ -122,7 +122,7 @@ class ErrorHandlerImpl implements ErrorManager {
    */
   private formatError(error: unknown, options: ErrorOptions = {}): any {
     try {
-      return formatErrorForDisplay(error, options);
+      return formatErrorForDisplay(error);
     } catch (formattingError) {
       // If formatting fails, return a basic error object
       return {

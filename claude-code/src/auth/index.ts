@@ -10,6 +10,7 @@ import {
   AuthConfig, 
   AuthMethod, 
   AuthResult, 
+  AuthState,
   OAuthConfig 
 } from './types.js';
 import { 
@@ -42,7 +43,7 @@ const AUTH_STORAGE_KEY = 'anthropic-auth';
 /**
  * Authentication state
  */
-interface AuthState {
+interface AuthSessionState {
   initialized: boolean;
   authenticated: boolean;
   token: AuthToken | null;
@@ -56,7 +57,7 @@ interface AuthState {
 export class AuthManager {
   private config: AuthConfig;
   private tokenStorage;
-  private state: AuthState;
+  private state: AuthSessionState;
   
   /**
    * Create a new auth manager

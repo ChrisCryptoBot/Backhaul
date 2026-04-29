@@ -86,6 +86,13 @@ export function isAIInitialized(): boolean {
   return !!aiClient;
 }
 
+/**
+ * Reset in-memory AI client state
+ */
+export function resetAI(): void {
+  aiClient = null;
+}
+
 // Re-export types and components
 export * from './client.js';
 export * from './prompts.js'; 

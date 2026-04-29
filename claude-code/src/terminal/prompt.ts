@@ -32,7 +32,7 @@ export async function createPrompt<T>(options: PromptOptions, config: TerminalCo
   
   try {
     // Use Inquirer to create the prompt
-    const result = await inquirer.prompt([{
+    const result = await inquirer.prompt<Record<string, unknown>>([{
       ...options,
       // Make sure name is a string
       name: String(options.name)
@@ -40,7 +40,7 @@ export async function createPrompt<T>(options: PromptOptions, config: TerminalCo
     
     logger.debug('Prompt result', { name: options.name, result: result[options.name] });
     
-    return result;
+    return result as T;
   } catch (error) {
     logger.error('Error in prompt', error);
     throw new Error(`Failed to prompt for ${options.name}: ${error instanceof Error ? error.message : String(error)}`);

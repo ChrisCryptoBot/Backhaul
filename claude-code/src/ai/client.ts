@@ -156,14 +156,20 @@ export class AIClient {
     
     // Make the API request with timeout and retry
     try {
-      // Wrap the sendRequest method to handle timeouts correctly
-      const sendRequestWithPath = async (path: string, requestOptions: RequestInit) => {
-        return this.sendRequest(path, requestOptions);
+      const sendRequestWithTimeout = async (path: string, requestOptions: RequestInit) => {
+        const controller = new AbortController();
+        const timeoutFn = withTimeout(
+          this.sendRequest.bind(this),
+          this.config.timeout,
+          () => controller.abort()
+        );
+        return timeoutFn(path, {
+          ...requestOptions,
+          signal: controller.signal
+        });
       };
-      
-      const timeoutFn = withTimeout(sendRequestWithPath, this.config.timeout);
-      
-      const retryFn = withRetry(timeoutFn, {
+
+      const retryFn = withRetry(sendRequestWithTimeout, {
         maxRetries: this.config.retryOptions.maxRetries,
         initialDelayMs: this.config.retryOptions.initialDelayMs,
         maxDelayMs: this.config.retryOptions.maxDelayMs
@@ -218,10 +224,17 @@ export class AIClient {
     
     // Make the API request
     try {
-      await this.sendStreamRequest('/v1/messages', {
+      const controller = new AbortController();
+      const streamWithTimeout = withTimeout(
+        this.sendStreamRequest.bind(this),
+        this.config.timeout,
+        () => controller.abort()
+      );
+      await streamWithTimeout('/v1/messages', {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify(request)
+        body: JSON.stringify(request),
+        signal: controller.signal
       }, onEvent);
     } catch (error) {
       logger.error('Streaming completion request failed', error);
@@ -273,7 +286,7 @@ export class AIClient {
       const data = await response.json();
       return data;
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
         throw createUserError('Request timed out', {
           category: ErrorCategory.TIMEOUT,
           resolution: 'Try again or increase the timeout setting.'
@@ -355,7 +368,7 @@ export class AIClient {
         }
       }
     } catch (error) {
-      if (error instanceof Error && error.name === 'AbortError') {
+      if (error instanceof Error && (error.name === 'AbortError' || error.name === 'TimeoutError')) {
         throw createUserError('Streaming request timed out', {
           category: ErrorCategory.TIMEOUT,
           resolution: 'Try again or increase the timeout setting.'

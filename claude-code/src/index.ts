@@ -53,7 +53,7 @@ export async function initialize(options: any = {}): Promise<AppInstance> {
     const auth = await initAuthentication(config);
     
     // Initialize AI client
-    const ai = await initAI(config, auth);
+    const ai = await initAI(config);
     
     // Initialize codebase analysis
     const codebase = await initCodebaseAnalysis(config);
@@ -141,8 +141,10 @@ export async function shutdown(app: AppInstance): Promise<void> {
     await app.telemetry.submitTelemetry();
   }
   
-  // Disconnect from services
-  await app.ai.disconnect();
+  // Disconnect from services if supported
+  if (app.ai && typeof app.ai.disconnect === 'function') {
+    await app.ai.disconnect();
+  }
   
   logger.info('Claude Code CLI shutdown complete');
 }
