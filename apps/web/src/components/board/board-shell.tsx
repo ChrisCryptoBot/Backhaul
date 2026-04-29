@@ -273,11 +273,13 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
       <header className="db-topbar">
         <div className="db-brand">DROP BUCKET</div>
         <nav className="db-topnav">
-          <a className="active">Daily Board</a>
-          <a href="/dashboard">KPI Dashboard</a>
-          <span className="disabled">Lanes</span>
-          <span className="disabled">Brokers</span>
-          <span className="disabled">Audit</span>
+          <a className="db-topnav-item active">Daily Board</a>
+          <a href="/dashboard" className="db-topnav-item">
+            KPI Dashboard
+          </a>
+          <span className="db-topnav-item disabled">Lanes</span>
+          <span className="db-topnav-item disabled">Brokers</span>
+          <span className="db-topnav-item disabled">Audit</span>
         </nav>
         <div className="db-topbar-right">
           <button className="db-date-btn">
@@ -306,19 +308,38 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
               <ChevronRightIcon size={12} />
               <span>{board.date}</span>
             </div>
-            <div className="db-stats">
-              <span>Loads: {int(board.totals.loads)}</span>
-              <span>Line Haul: {money(board.totals.lineHaul, { decimals: 0 })}</span>
-              <span>Loaded Mi: {int(board.totals.loadedMiles)}</span>
-              <span>Empty %: {pct(board.totals.emptyPctRatio, { fromRatio: true })}</span>
-              <span>Floor RPM: {rpm(board.totals.floorRpm)}</span>
+            <div className="db-day-totals">
+              <div className="db-stat">
+                <span className="db-stat-label">Loads</span>
+                <span className="db-stat-value mono">{int(board.totals.loads)}</span>
+              </div>
+              <div className="db-stat-sep" />
+              <div className="db-stat">
+                <span className="db-stat-label">Line Haul</span>
+                <span className="db-stat-value mono">{money(board.totals.lineHaul, { decimals: 0 })}</span>
+              </div>
+              <div className="db-stat-sep" />
+              <div className="db-stat">
+                <span className="db-stat-label">Loaded Mi</span>
+                <span className="db-stat-value mono">{int(board.totals.loadedMiles)}</span>
+              </div>
+              <div className="db-stat-sep" />
+              <div className="db-stat">
+                <span className="db-stat-label">Empty %</span>
+                <span className="db-stat-value mono">{pct(board.totals.emptyPctRatio, { fromRatio: true })}</span>
+              </div>
+              <div className="db-stat-sep" />
+              <div className="db-stat">
+                <span className="db-stat-label">Floor RPM</span>
+                <span className="db-stat-value mono accent">{rpm(board.totals.floorRpm)}</span>
+              </div>
             </div>
           </div>
 
           {boardError ? <p className="db-msg">{boardError}</p> : null}
 
           <div className="db-table-wrap">
-            <table className="db-table">
+            <table className="db-table compact">
               <thead>
                 <tr>
                   <th>Ref</th>
@@ -338,8 +359,13 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
                   <React.Fragment key={section.id}>
                     <tr className="db-section-row">
                       <td colSpan={10}>
-                        {section.title} ({section.filledCount}
-                        {section.capacity !== null ? `/${section.capacity}` : ""})
+                        <div className="db-section-inner">
+                          <span className="db-section-name">{section.title}</span>
+                          <span className="db-cap mono">
+                            {section.filledCount}
+                            {section.capacity !== null ? `/${section.capacity}` : ""}
+                          </span>
+                        </div>
                       </td>
                     </tr>
                     {section.loads.length === 0 ? (
@@ -361,12 +387,12 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
                           </td>
                           <td>{load.shipper}</td>
                           <td>{load.receiver}</td>
-                          <td className="right">{money(load.lineHaul)}</td>
-                          <td className="right">{int(load.loadedMi)}</td>
-                          <td className="right">{int(load.puDh)}</td>
-                          <td className="right">{int(load.delDh)}</td>
-                          <td className="right">{int(load.totalMi)}</td>
-                          <td className="right">{rpm(load.floorRpm)}</td>
+                          <td className="right mono num">{money(load.lineHaul)}</td>
+                          <td className="right mono num">{int(load.loadedMi)}</td>
+                          <td className="right mono num dim">{int(load.puDh)}</td>
+                          <td className="right mono num dim">{int(load.delDh)}</td>
+                          <td className="right mono num">{int(load.totalMi)}</td>
+                          <td className="right mono num strong">{rpm(load.floorRpm)}</td>
                         </tr>
                       ))
                     )}
