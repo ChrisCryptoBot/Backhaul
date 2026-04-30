@@ -257,6 +257,23 @@
   background: #15233f;
 }
 
+.db-row-open-btn {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  text-align: left;
+}
+
+.db-row-open-btn:focus-visible {
+  outline: 2px solid var(--db-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 .db-table td.strong {
   color: var(--db-fg);
   font-weight: 500;
