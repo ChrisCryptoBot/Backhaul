@@ -87,6 +87,7 @@ export async function POST(request: Request) {
         weekIso,
         sourceFileUrl,
         sourceFileHash: contentHash,
+        acceptedById: actorUserId,
         idempotencyKey,
         db: tx,
         enqueueParseJob: false
