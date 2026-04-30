@@ -11,7 +11,9 @@ vi.mock("@/lib/db", () => ({
 }));
 
 vi.mock("@/lib/env", () => ({
-  getPhase1RegionCode: () => "NE"
+  getEnv: () => ({
+    PHASE1_REGION_CODE: "NE"
+  })
 }));
 
 describe("region scope", () => {
