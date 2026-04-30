@@ -6,10 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:assert-no-dev-helper": "node scripts/assert-no-dev-helper-in-build.mjs",
-<<<<<<< HEAD
-=======
     "seed:dev": "node scripts/seed-dev-data.mjs",
->>>>>>> e9ec60e (chore(dev): add repeatable local board seed command)
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
