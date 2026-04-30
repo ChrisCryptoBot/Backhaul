@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "build:assert-no-dev-helper": "node scripts/assert-no-dev-helper-in-build.mjs",
+    "seed:dev": "node scripts/seed-dev-data.mjs",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
