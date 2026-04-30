@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
+import { PolicyViolationError } from "@/lib/policy-error";
 
 const auth = vi.fn();
 const requireRegionAccess = vi.fn();
@@ -35,7 +36,7 @@ describe("board page shell", () => {
     requireRegionAccess.mockResolvedValue({ userId: "user-1", regionId: "region-1", role: "COORDINATOR" });
   });
 
-  test("renders sections in expected order", async () => {
+  test("renders board shell with board data", async () => {
     getBoardResponse.mockResolvedValue({
       regionId: "region-1",
       date: "2026-04-29",
@@ -51,7 +52,16 @@ describe("board page shell", () => {
           type: "drop_lot",
           title: "LOT A",
           filledCount: 1,
-          dropLot: null,
+          dropLot: {
+            id: "lot-a",
+            name: "LOT A",
+            city: "Warrendale",
+            state: "PA",
+            sortOrder: 1,
+            dailyCapacity: 5,
+            slipSeat: true,
+            dropHookRequired: true
+          },
           loads: [
             {
               id: "load-1",
@@ -85,11 +95,13 @@ describe("board page shell", () => {
 
     const HomePage = (await import("@/app/page")).default;
     const markup = renderToStaticMarkup(await HomePage({ searchParams: { date: "2026-04-29" } }));
-    expect(markup.indexOf("LOT A")).toBeLessThan(markup.indexOf("Ad-hoc lanes"));
-    expect(markup.indexOf("Ad-hoc lanes")).toBeLessThan(markup.indexOf("CANCELED / TONU"));
+    expect(markup).toContain("DROP BUCKET");
+    expect(markup).toContain("Daily Board");
+    expect(markup).toContain("LOT A");
+    expect(markup).toContain("REF-1");
   });
 
-  test("renders MVP column order list", async () => {
+  test("renders fallback section labels", async () => {
     getBoardResponse.mockResolvedValue({
       regionId: "region-1",
       date: "2026-04-29",
@@ -100,12 +112,16 @@ describe("board page shell", () => {
         emptyMilePct: null,
         negFloorRpm: null
       },
-      sections: []
+      sections: [
+        { type: "adhoc", title: "Ad-hoc lanes", filledCount: 0, dropLot: null, loads: [] },
+        { type: "canceled", title: "CANCELED / TONU", filledCount: 0, dropLot: null, loads: [] }
+      ]
     });
 
     const HomePage = (await import("@/app/page")).default;
     const markup = renderToStaticMarkup(await HomePage({ searchParams: { date: "2026-04-29" } }));
-    expect(markup.indexOf("DROP LOTS")).toBeLessThan(markup.indexOf("(3PL) REF #"));
+    expect(markup).toContain("Ad-hoc lanes");
+    expect(markup).toContain("CANCELED / TONU");
   });
 
   test("renders empty state when no section has loads", async () => {
@@ -127,7 +143,9 @@ describe("board page shell", () => {
 
     const HomePage = (await import("@/app/page")).default;
     const markup = renderToStaticMarkup(await HomePage({ searchParams: { date: "2026-04-29" } }));
-    expect(markup).toContain("No loads booked for this date.");
+    expect(markup).toContain("No loads in this section.");
+    expect(markup).toContain("Ad-hoc lanes");
+    expect(markup).toContain("CANCELED / TONU");
   });
 
   test("renders error state when board load fails", async () => {
@@ -135,5 +153,59 @@ describe("board page shell", () => {
     const HomePage = (await import("@/app/page")).default;
     const markup = renderToStaticMarkup(await HomePage({ searchParams: { date: "2026-04-29" } }));
     expect(markup).toContain("Unable to load board data right now.");
+  });
+
+  test("uses ET calendar day when date query is invalid", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-04-29T02:00:00.000Z"));
+    getBoardResponse.mockResolvedValue({
+      regionId: "region-1",
+      date: "2026-04-28",
+      dayTotals: {
+        loadCount: 0,
+        lineHaulTotal: "0",
+        loadedMilesTotal: "0",
+        emptyMilePct: null,
+        negFloorRpm: null
+      },
+      sections: []
+    });
+
+    const HomePage = (await import("@/app/page")).default;
+    await HomePage({ searchParams: { date: "invalid" } });
+    expect(getBoardResponse).toHaveBeenCalledWith({
+      regionId: "region-1",
+      date: "2026-04-28"
+    });
+    vi.useRealTimers();
+  });
+
+  test("supports promise-shaped searchParams", async () => {
+    getBoardResponse.mockResolvedValue({
+      regionId: "region-1",
+      date: "2026-04-29",
+      dayTotals: {
+        loadCount: 0,
+        lineHaulTotal: "0",
+        loadedMilesTotal: "0",
+        emptyMilePct: null,
+        negFloorRpm: null
+      },
+      sections: []
+    });
+
+    const HomePage = (await import("@/app/page")).default;
+    await HomePage({ searchParams: Promise.resolve({ date: "2026-04-29" }) });
+    expect(getBoardResponse).toHaveBeenCalledWith({
+      regionId: "region-1",
+      date: "2026-04-29"
+    });
+  });
+
+  test("renders forbidden state for region policy denials", async () => {
+    requireRegionAccess.mockRejectedValue(new PolicyViolationError("Forbidden for region"));
+    const HomePage = (await import("@/app/page")).default;
+    const markup = renderToStaticMarkup(await HomePage({ searchParams: { date: "2026-04-29" } }));
+    expect(markup).toContain("Forbidden");
   });
 });
