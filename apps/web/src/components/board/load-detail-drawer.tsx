@@ -33,6 +33,9 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
   const [detail, setDetail] = React.useState<ViewLoadDetail | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const drawerRef = React.useRef<HTMLElement | null>(null);
+  const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const titleId = React.useId();
 
   React.useEffect(() => {
     if (!loadId) {
@@ -80,14 +83,65 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
     if (!loadId) {
       return;
     }
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        onClose();
-      }
+
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const focusFrame = window.requestAnimationFrame(() => {
+      closeButtonRef.current?.focus();
+    });
+
+    return () => {
+      window.cancelAnimationFrame(focusFrame);
+      previousFocus?.focus();
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [loadId, onClose]);
+  }, [loadId]);
+
+  const handleDialogKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLElement>) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+
+      if (event.key !== "Tab") {
+        return;
+      }
+
+      const drawer = drawerRef.current;
+      if (!drawer) {
+        return;
+      }
+
+      const focusableElements = Array.from(
+        drawer.querySelectorAll<HTMLElement>(
+          "button, [href], input, select, textarea, [tabindex]:not([tabindex='-1'])"
+        )
+      ).filter((element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true");
+
+      if (focusableElements.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const firstElement = focusableElements[0];
+      const lastElement = focusableElements[focusableElements.length - 1];
+      const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+      if (event.shiftKey) {
+        if (!activeElement || activeElement === firstElement) {
+          event.preventDefault();
+          lastElement.focus();
+        }
+        return;
+      }
+
+      if (activeElement === lastElement) {
+        event.preventDefault();
+        firstElement.focus();
+      }
+    },
+    [onClose]
+  );
 
   if (!loadId) {
     return null;
@@ -96,13 +150,23 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
   return (
     <>
       <button className="db-drawer-backdrop" aria-label="Close drawer" onClick={onClose} />
-      <aside className="db-drawer" role="dialog" aria-modal="true" aria-label="Load details">
+      <aside
+        ref={drawerRef}
+        className="db-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleDialogKeyDown}
+      >
         <header className="db-drawer-head">
           <div>
             <div className="db-drawer-eyebrow">Load Detail</div>
-            <h2 className="db-drawer-title">{detail?.ref ?? "Loading..."}</h2>
+            <h2 id={titleId} className="db-drawer-title">
+              {detail?.ref ?? "Loading..."}
+            </h2>
           </div>
-          <button className="db-btn db-btn-ghost" onClick={onClose} aria-label="Close drawer">
+          <button ref={closeButtonRef} className="db-btn db-btn-ghost" onClick={onClose} aria-label="Close drawer">
             <CloseIcon size={14} />
           </button>
         </header>
