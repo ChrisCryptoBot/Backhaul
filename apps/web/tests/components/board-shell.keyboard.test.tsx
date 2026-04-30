@@ -1,6 +1,6 @@
 import React from "react";
 import { beforeEach, afterEach, describe, expect, test, vi } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { BoardShell } from "@/components/board/board-shell";
 import type { ViewBoardResponse } from "@/lib/ui/board-mappers";
@@ -131,9 +131,10 @@ describe("board shell keyboard accessibility", () => {
     await user.keyboard("{Enter}");
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
 
-    const closeButtons = await screen.findAllByRole("button", { name: "Close drawer" });
+    const dialog = await screen.findByRole("dialog");
+    const closeButton = within(dialog).getByRole("button", { name: "Close load details" });
     await waitFor(() => {
-      expect(closeButtons[1]).toHaveFocus();
+      expect(closeButton).toHaveFocus();
     });
 
     await user.keyboard("{Escape}");

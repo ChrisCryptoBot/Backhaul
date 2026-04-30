@@ -1,6 +1,6 @@
 import React from "react";
 import { describe, expect, test, vi, beforeEach, afterEach } from "vitest";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { LoadDetailDrawer } from "@/components/board/load-detail-drawer";
 
@@ -75,13 +75,14 @@ describe("load detail drawer interactions", () => {
     await waitFor(() => {
       expect(screen.getByRole("dialog")).toBeInTheDocument();
     });
-    const closeButton = screen.getAllByRole("button", { name: "Close drawer" })[1];
+    const dialog = screen.getByRole("dialog");
+    const closeButton = within(dialog).getByRole("button", { name: "Close load details" });
     closeButton.focus();
 
     await user.keyboard("{Escape}");
     expect(onClose).toHaveBeenCalledTimes(1);
 
-    await user.click(screen.getAllByRole("button", { name: "Close drawer" })[0]);
+    await user.click(screen.getByRole("button", { name: "Close drawer backdrop" }));
     expect(onClose).toHaveBeenCalledTimes(2);
   });
 
@@ -97,13 +98,29 @@ describe("load detail drawer interactions", () => {
     await screen.findByRole("dialog");
     const dialog = screen.getByRole("dialog");
     const outsideButton = screen.getByRole("button", { name: "Outside action" });
-    const closeButton = screen.getAllByRole("button", { name: "Close drawer" })[1];
+    const closeButton = within(dialog).getByRole("button", { name: "Close load details" });
+    const firstExtra = document.createElement("button");
+    firstExtra.type = "button";
+    firstExtra.textContent = "Dialog action one";
+    const secondExtra = document.createElement("button");
+    secondExtra.type = "button";
+    secondExtra.textContent = "Dialog action two";
+    dialog.append(firstExtra, secondExtra);
+
     closeButton.focus();
+    expect(closeButton).toHaveFocus();
+
+    await user.tab();
+    expect(firstExtra).toHaveFocus();
+
+    await user.tab();
+    expect(secondExtra).toHaveFocus();
+
+    await user.tab();
+    expect(closeButton).toHaveFocus();
 
     await user.tab({ shift: true });
-    const focusedAfterShiftTab = document.activeElement as HTMLElement | null;
-    expect(focusedAfterShiftTab).not.toBeNull();
-    expect(dialog.contains(focusedAfterShiftTab)).toBe(true);
+    expect(secondExtra).toHaveFocus();
     expect(outsideButton).not.toHaveFocus();
   });
 
@@ -126,10 +143,11 @@ describe("load detail drawer interactions", () => {
     await user.click(trigger);
 
     await screen.findByRole("dialog");
-    const closeButton = screen.getAllByRole("button", { name: "Close drawer" })[1];
+    const dialog = screen.getByRole("dialog");
+    const closeButton = within(dialog).getByRole("button", { name: "Close load details" });
     closeButton.focus();
 
-    await user.click(screen.getAllByRole("button", { name: "Close drawer" })[0]);
+    await user.click(screen.getByRole("button", { name: "Close drawer backdrop" }));
     await waitFor(() => {
       expect(screen.queryByRole("dialog")).toBeNull();
       expect(trigger).toHaveFocus();
