@@ -388,7 +388,25 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
                           className={selectedLoadId === load.id ? "selected" : ""}
                           onClick={() => setSelectedLoadId(load.id)}
                         >
-                          <td>{load.ref}</td>
+                          <td>
+                            <button
+                              type="button"
+                              className="db-row-open-btn"
+                              aria-label={`Open details for ${load.ref}`}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setSelectedLoadId(load.id);
+                              }}
+                              onKeyDown={(event) => {
+                                if (event.key === " " || event.key === "Spacebar") {
+                                  event.preventDefault();
+                                  setSelectedLoadId(load.id);
+                                }
+                              }}
+                            >
+                              {load.ref}
+                            </button>
+                          </td>
                           <td>
                             <StatusPill status={load.status} />
                           </td>
