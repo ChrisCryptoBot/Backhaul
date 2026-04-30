@@ -2,7 +2,7 @@ import { SignIn } from "@clerk/nextjs";
 import dynamic from "next/dynamic";
 
 const DevSignInHelperClient = dynamic(
-  () => import("./dev-signin-helper").then((module) => module.DevSignInHelper),
+  () => import("@/app/sign-in/[[...sign-in]]/dev-signin-helper").then((module) => module.DevSignInHelper),
   { ssr: false }
 );
 
