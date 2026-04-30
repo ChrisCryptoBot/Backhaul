@@ -14,9 +14,9 @@ interface BoardShellProps {
 }
 
 interface ActivityResponse {
-  pending: Array<{ id: string; parseState: string }>;
-  ready: Array<{ id: string; parseState: string }>;
-  recent: Array<{ id: string; parseState: string; updatedAt: string }>;
+  pending: Array<{ id: string; parseState: string; reviewDecision: string }>;
+  ready: Array<{ id: string; parseState: string; reviewDecision: string }>;
+  recent: Array<{ id: string; parseState: string; reviewDecision: string; hasLoad?: boolean; updatedAt: string }>;
 }
 
 type LocalUploadStatus = "uploading" | "parsing" | "ready" | "failed";
@@ -70,7 +70,7 @@ function statusLabel(status: LocalUploadStatus): string {
     return "Parsing";
   }
   if (status === "ready") {
-    return "Ready for review";
+    return "Accepted";
   }
   return "Failed";
 }
@@ -218,14 +218,18 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
       if (!previous.some((item) => item.status === "parsing" && item.rateConfirmationId)) {
         return previous;
       }
-      const readyIds = new Set(activity.ready.map((item) => item.id));
+      const acceptedIds = new Set(
+        (activity.recent ?? [])
+          .filter((item) => item.parseState === "EXTRACTED" && item.reviewDecision === "APPROVED")
+          .map((item) => item.id)
+      );
       return previous.map((item) =>
-        item.status === "parsing" && item.rateConfirmationId && readyIds.has(item.rateConfirmationId)
-          ? { ...item, status: "ready", message: "Ready for review" }
+        item.status === "parsing" && item.rateConfirmationId && acceptedIds.has(item.rateConfirmationId)
+          ? { ...item, status: "ready", message: "Accepted" }
           : item
       );
     });
-  }, [activity?.ready]);
+  }, [activity?.ready?.length, activity?.recent]);
 
   const pendingItems = React.useMemo(
     () => localUploads.filter((item) => item.status === "uploading" || item.status === "parsing"),
@@ -237,7 +241,10 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
   const failedRecent = React.useMemo(
     () =>
       (activity?.recent ?? []).filter(
-        (item) => item.parseState.startsWith("FAILED") && !dismissedFailedRecentIds.includes(item.id)
+        (item) =>
+          item.parseState.startsWith("FAILED") &&
+          item.reviewDecision !== "REJECTED" &&
+          !dismissedFailedRecentIds.includes(item.id)
       ),
     [activity, dismissedFailedRecentIds]
   );
@@ -475,18 +482,13 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
               ))}
             </div>
             <div className="db-footer-card">
-              <strong>Ready</strong>
-              <span>{(activity?.ready.length ?? 0) + readyLocalItems.length} ready</span>
-              {readyLocalItems.slice(0, 1).map((item) =>
-                item.rateConfirmationId ? (
-                  <span key={item.localId} className="db-footer-sub db-row-with-actions">
-                    {item.fileName.slice(0, 16)}... <span className="db-upload-badge ready">Ready for review</span>
-                    <button className="db-btn db-btn-mini" onClick={() => handleReview(item.rateConfirmationId!)}>
-                      Review
-                    </button>
-                  </span>
-                ) : null
-              )}
+              <strong>Accepted</strong>
+              <span>{readyLocalItems.length} accepted</span>
+              {readyLocalItems.slice(0, 2).map((item) => (
+                <span key={item.localId} className="db-footer-sub">
+                  {item.fileName.slice(0, 16)}... <span className="db-upload-badge ready">Accepted</span>
+                </span>
+              ))}
               {(activity?.ready ?? []).slice(0, 2).map((item) => (
                 <span key={item.id} className="db-footer-sub db-row-with-actions">
                   {item.id.slice(0, 8)}... <span className="db-upload-badge ready">Ready for review</span>

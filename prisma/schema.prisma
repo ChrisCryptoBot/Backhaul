@@ -30,6 +30,12 @@ enum ParseState {
   FAILED_LOW_CONFIDENCE
 }
 
+enum ReviewDecision {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 enum BrokerOnboardingStatus {
   PENDING
   APPROVED
@@ -155,6 +161,10 @@ model RateConfirmation {
   sourceFileHash   String     @unique
   idempotencyKey   String?    @unique
   parseState       ParseState
+  reviewDecision   ReviewDecision @default(APPROVED)
+  reviewedAt       DateTime?
+  reviewedById     String?
+  reviewReason     String?
   parseConfidence  Decimal?   @db.Decimal(5, 4)
   extractedPayload Json?
   deletedAt        DateTime?

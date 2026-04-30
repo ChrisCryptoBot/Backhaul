@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
 import { ParseState, Prisma, PrismaClient } from "@prisma/client";
+import { createAuditLog } from "@/lib/audit";
 import { prisma } from "@/lib/db";
 import { getEnv } from "@/lib/env";
 import { enqueueJob } from "./queue";
@@ -14,6 +15,7 @@ export async function finalizeUpload(input: {
   weekIso: string;
   sourceFileUrl: string;
   sourceFileHash: string;
+  acceptedById?: string;
   idempotencyKey?: string;
   db?: PrismaClient | Prisma.TransactionClient;
   enqueueParseJob?: boolean;
@@ -50,6 +52,26 @@ export async function finalizeUpload(input: {
       parseState: ParseState.UPLOADED
     }
   });
+
+  if (input.acceptedById) {
+    // Design note: reviewedAt/reviewedById capture upload acceptance intent here.
+    // Review decisions can later overwrite these latest-state markers.
+    // Full acceptance/decision timeline is preserved in AuditLog entries.
+    await db.$executeRaw`UPDATE "RateConfirmation"
+      SET "reviewedAt" = ${new Date()},
+          "reviewedById" = ${input.acceptedById},
+          "reviewReason" = NULL
+      WHERE "id" = ${rateConfirmation.id}`;
+    await db.auditLog.create({
+      data: createAuditLog({
+        entityType: "RateConfirmation",
+        entityId: rateConfirmation.id,
+        action: "UPLOAD_ACCEPTED",
+        actorId: input.acceptedById,
+        timestamp: new Date()
+      })
+    });
+  }
 
   if (enqueueParseJob) {
     await enqueueJob(SQS_PARSE_QUEUE_URL, {
