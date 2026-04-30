@@ -386,7 +386,16 @@ export function BoardShell({ board, boardError = null }: BoardShellProps) {
                         <tr
                           key={load.id}
                           className={selectedLoadId === load.id ? "selected" : ""}
+                          role="button"
+                          tabIndex={0}
+                          aria-label={`Open details for ${load.ref}`}
                           onClick={() => setSelectedLoadId(load.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              setSelectedLoadId(load.id);
+                            }
+                          }}
                         >
                           <td>{load.ref}</td>
                           <td>
