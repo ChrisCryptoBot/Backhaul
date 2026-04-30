@@ -14,6 +14,10 @@ function setInputValue(input: HTMLInputElement, value: string) {
 }
 
 export function DevSignInHelper() {
+  if (process.env.NODE_ENV === "production") {
+    return null;
+  }
+
   const [message, setMessage] = React.useState<string | null>(null);
 
   const fillInputs = React.useCallback(() => {
