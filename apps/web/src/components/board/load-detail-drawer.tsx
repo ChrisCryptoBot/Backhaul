@@ -35,6 +35,8 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
   const [error, setError] = React.useState<string | null>(null);
   const drawerRef = React.useRef<HTMLElement | null>(null);
   const closeButtonRef = React.useRef<HTMLButtonElement | null>(null);
+  const restoreFocusRef = React.useRef<HTMLElement | null>(null);
+  const previousLoadIdRef = React.useRef<string | null>(null);
   const titleId = React.useId();
 
   React.useEffect(() => {
@@ -80,19 +82,33 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
   }, [loadId]);
 
   React.useEffect(() => {
-    if (!loadId) {
-      return;
+    const wasOpen = previousLoadIdRef.current !== null;
+    const isOpen = loadId !== null;
+
+    if (isOpen && !wasOpen) {
+      restoreFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      const focusFrame = window.requestAnimationFrame(() => {
+        closeButtonRef.current?.focus();
+      });
+      previousLoadIdRef.current = loadId;
+      return () => {
+        window.cancelAnimationFrame(focusFrame);
+      };
     }
 
-    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    const focusFrame = window.requestAnimationFrame(() => {
-      closeButtonRef.current?.focus();
-    });
+    if (!isOpen && wasOpen) {
+      const target = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      const restoreFrame = window.requestAnimationFrame(() => {
+        target?.focus();
+      });
+      previousLoadIdRef.current = null;
+      return () => {
+        window.cancelAnimationFrame(restoreFrame);
+      };
+    }
 
-    return () => {
-      window.cancelAnimationFrame(focusFrame);
-      previousFocus?.focus();
-    };
+    previousLoadIdRef.current = loadId;
   }, [loadId]);
 
   const handleDialogKeyDown = React.useCallback(
@@ -149,7 +165,7 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
 
   return (
     <>
-      <button className="db-drawer-backdrop" aria-label="Close drawer" onClick={onClose} />
+      <button className="db-drawer-backdrop" aria-label="Close drawer backdrop" onClick={onClose} />
       <aside
         ref={drawerRef}
         className="db-drawer"
@@ -166,7 +182,7 @@ export function LoadDetailDrawer({ loadId, onClose }: LoadDetailDrawerProps) {
               {detail?.ref ?? "Loading..."}
             </h2>
           </div>
-          <button ref={closeButtonRef} className="db-btn db-btn-ghost" onClick={onClose} aria-label="Close drawer">
+          <button ref={closeButtonRef} className="db-btn db-btn-ghost" onClick={onClose} aria-label="Close load details">
             <CloseIcon size={14} />
           </button>
         </header>
