@@ -2,9 +2,6 @@
 
 import React from "react";
 
-const DEFAULT_TEST_EMAIL = "dev@example.invalid";
-const DEFAULT_TEST_PASSWORD = "REDACTED_DEV_PASSWORD";
-
 function setInputValue(input: HTMLInputElement, value: string) {
   const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
   if (descriptor?.set) {
@@ -30,8 +27,13 @@ export function DevSignInHelper() {
       return null;
     }
 
-    const testEmail = process.env.NEXT_PUBLIC_DEV_TEST_LOGIN_EMAIL ?? DEFAULT_TEST_EMAIL;
-    const testPassword = process.env.NEXT_PUBLIC_DEV_TEST_LOGIN_PASSWORD ?? DEFAULT_TEST_PASSWORD;
+    const testEmail = process.env.NEXT_PUBLIC_DEV_TEST_LOGIN_EMAIL?.trim();
+    const testPassword = process.env.NEXT_PUBLIC_DEV_TEST_LOGIN_PASSWORD?.trim();
+
+    if (!testEmail || !testPassword) {
+      setMessage("Set NEXT_PUBLIC_DEV_TEST_LOGIN_EMAIL and NEXT_PUBLIC_DEV_TEST_LOGIN_PASSWORD in .env.local.");
+      return null;
+    }
 
     setInputValue(emailInput, testEmail);
     setInputValue(passwordInput, testPassword);
@@ -74,7 +76,7 @@ export function DevSignInHelper() {
         </button>
       </div>
       {message ? (
-        <p style={{ marginTop: 6, fontSize: 12, color: "var(--db-fg-mid)" }} aria-live="polite">
+        <p style={{ marginTop: 6, fontSize: 12, color: "var(--db-fg-mid)" }} aria-live="polite" role="status">
           {message}
         </p>
       ) : null}
