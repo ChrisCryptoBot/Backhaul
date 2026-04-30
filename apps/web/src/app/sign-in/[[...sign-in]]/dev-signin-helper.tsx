@@ -14,9 +14,7 @@ function setInputValue(input: HTMLInputElement, value: string) {
 }
 
 export function DevSignInHelper() {
-  if (process.env.NODE_ENV === "production") {
-    return null;
-  }
+  const isProduction = process.env.NODE_ENV === "production";
 
   const [message, setMessage] = React.useState<string | null>(null);
 
@@ -68,6 +66,10 @@ export function DevSignInHelper() {
     form.requestSubmit();
     setMessage("Test credentials autofilled and submitted.");
   }, [fillInputs]);
+
+  if (isProduction) {
+    return null;
+  }
 
   return (
     <section style={{ marginBottom: 12 }}>
