@@ -1,0 +1,18 @@
+:root {
+  color-scheme: dark;
+}
+
+@import "./board.css";
+
+body {
+  margin: 0;
+  font-family: Inter, Arial, sans-serif;
+  background: #0a0a0f;
+  color: #e6e6ed;
+}
+
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
